@@ -22,11 +22,12 @@ public class ClientHandler implements Runnable {
 	
 	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
 	
-	
 	public ObjectMapper mapper;
 	public PrintWriter writer;
 	public Message message;
 	public Socket socket;
+	
+	private String recipient;
 	
 
 	public ClientHandler(Socket socket) {
@@ -46,19 +47,11 @@ public class ClientHandler implements Runnable {
 			while (!socket.isClosed()) {
 				String raw = reader.readLine();
 				message = mapper.readValue(raw, Message.class);
-				
-				
-				if (message.getCommand().charAt(0) == '@') {
-					String recipient = message.getCommand().substring(1);
-					if (clientMap.containsKey(recipient)) 
-						messageOut(message.getContents(), clientMap.get(recipient));
-					else 
-						messageOut("That user is not connected", this);
+
+				if (message.getCommand().startsWith("@")) {
+					recipient = message.getCommand().substring(1);
+					message.setCommand(message.getCommand().substring(0, 1));
 				}
-				
-//				if (!Arrays.asList(Server.commandArray).contains(message.getCommand()) && !clientMap.containsKey(message.getCommand())) {
-//					messageOut("Either the command you are trying to enter does not exist, or the user you are attempting to message is not connected. Check your spelling", this);
-//				}
 				
 				
 				//
@@ -68,6 +61,7 @@ public class ClientHandler implements Runnable {
 				// using too many for loops on the HashMap. Condense that into one method if possible
 				switch (message.getCommand()) {
 
+				
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						for(ClientHandler client : clientMap.values()){
@@ -100,7 +94,15 @@ public class ClientHandler implements Runnable {
 						for(String userName : clientMap.keySet()){
                         	userList += (userName + "\n");
                         } messageOut(userList, this);
-						break;	
+						break;
+						
+					case "@":
+						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
+						if (!clientMap.containsKey(recipient)) {
+							messageOut("There are no users online with that username. Check your spelling, bruh", this);
+						} else {
+							messageOut(message.getUsername() + "> " + message.getContents(), clientMap.get(recipient));
+						} break;	
 				}
 			}
 
