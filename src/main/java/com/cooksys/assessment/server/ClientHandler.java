@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ public class ClientHandler implements Runnable {
 	private Message message;
 	private Socket socket;
 	private String recipient;
+	String timeStamp;
 	
 	private ObjectMapper mapper;
 	public ObjectMapper getMapper() {
@@ -47,9 +50,10 @@ public class ClientHandler implements Runnable {
 			writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
 			while (!socket.isClosed()) {
+				
 				String raw = reader.readLine();
 				message = mapper.readValue(raw, Message.class);
-				
+				timeStamp = (new SimpleDateFormat("h:mm a").format(new Date()));
 
 				if (message.getCommand().startsWith("@")) {
 					recipient = message.getCommand().substring(1);
@@ -64,27 +68,27 @@ public class ClientHandler implements Runnable {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + " has connected", client);
+                        	messageOut("has connected", client, true);
 						} clientMap.put(message.getUsername(), this);
 						break;
 						
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
 						for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + " has disconnected", client);
+                        	messageOut("has disconnected", client, true);
 						} clientMap.remove(message.getUsername());
 						this.socket.close();
 						break;
 						
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
-						messageOut("(echo): " +  message.getContents(), this);
+						messageOut("(echo): " +  message.getContents(), this, false);
 						break;	
 						
 					case "broadcast":
                         log.info("user <{}> broadcasted message <{}>", message.getUsername(), message.getContents());
                         for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + " (all): " + message.getContents(), client);
+                        	messageOut("(all): " + message.getContents(), client, true);
                         } break;
 
 					case "users":
@@ -92,15 +96,15 @@ public class ClientHandler implements Runnable {
 						String userList = "";
 						for(String userName : clientMap.keySet()){
                         	userList += (userName + "\n");
-                        } messageOut(userList, this);
+                        } messageOut(userList, this, false);
 						break;
 						
 					case "@":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
 						if (!clientMap.containsKey(recipient)) {
-							messageOut("There are no users online with that username. Check your spelling, bruh", this);
+							messageOut("There are no users online with that username. Check your spelling, bruh", this, false);
 						} else {
-							messageOut(message.getUsername() + " (whisper): " + message.getContents(), clientMap.get(recipient));
+							messageOut("(whisper): " + message.getContents(), clientMap.get(recipient), true);
 						} break;	
 				}
 			}
@@ -111,13 +115,16 @@ public class ClientHandler implements Runnable {
 		
 	}
 
-	public void messageOut(String outputMessage, ClientHandler client) throws JsonProcessingException {
-		Message out = new Message();
-		out.setContents(outputMessage);
-		String outJSON = client.getMapper().writeValueAsString(out);
+	public void messageOut(String outputMessage, ClientHandler client, boolean needsUsername) throws JsonProcessingException {
+		Message out = new Message(); 
+		if (needsUsername == true) {
+			out.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
+		} else {
+			out.setContents(timeStamp + " " + outputMessage);
+		} String outJSON = client.getMapper().writeValueAsString(out);
+		
 		client.getWriter().write(outJSON);
 		client.getWriter().flush();
-
     }
 
 }
