@@ -17,26 +17,28 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ClientHandler implements Runnable {
-
-	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
 	
 	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
-	
-	public ObjectMapper mapper;
-	public PrintWriter writer;
-	public Message message;
-	public Socket socket;
-	
+
+	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
+	private Message message;
+	private Socket socket;
 	private String recipient;
 	
-
+	private ObjectMapper mapper;
+	public ObjectMapper getMapper() {
+		return mapper;
+	}
+	private PrintWriter writer;
+	public PrintWriter getWriter() {
+		return writer;
+	}
+	
 	public ClientHandler(Socket socket) {
 		super();
 		this.socket = socket;
 	}
 
-	
-	
 	public void run() {
 		try {
 
@@ -47,16 +49,13 @@ public class ClientHandler implements Runnable {
 			while (!socket.isClosed()) {
 				String raw = reader.readLine();
 				message = mapper.readValue(raw, Message.class);
+				
 
 				if (message.getCommand().startsWith("@")) {
 					recipient = message.getCommand().substring(1);
 					message.setCommand(message.getCommand().substring(0, 1));
 				}
-				
-				
-				//
 				// MESSAGE LOGGING MOTHA FUCKER
-				//
 				// add error handling for multiple copies of a userName  usernames 
 				// using too many for loops on the HashMap. Condense that into one method if possible
 				switch (message.getCommand()) {
@@ -65,27 +64,27 @@ public class ClientHandler implements Runnable {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + " connected", client);
+                        	messageOut(message.getUsername() + " has connected", client);
 						} clientMap.put(message.getUsername(), this);
 						break;
 						
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
 						for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + " disconnected", client);
+                        	messageOut(message.getUsername() + " has disconnected", client);
 						} clientMap.remove(message.getUsername());
 						this.socket.close();
 						break;
 						
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
-						messageOut(message.getContents(), this);
+						messageOut("(echo): " +  message.getContents(), this);
 						break;	
 						
 					case "broadcast":
                         log.info("user <{}> broadcasted message <{}>", message.getUsername(), message.getContents());
                         for(ClientHandler client : clientMap.values()){
-                        	messageOut(message.getUsername() + "(all) " + message.getContents(), client);
+                        	messageOut(message.getUsername() + " (all): " + message.getContents(), client);
                         } break;
 
 					case "users":
@@ -101,7 +100,7 @@ public class ClientHandler implements Runnable {
 						if (!clientMap.containsKey(recipient)) {
 							messageOut("There are no users online with that username. Check your spelling, bruh", this);
 						} else {
-							messageOut(message.getUsername() + "> " + message.getContents(), clientMap.get(recipient));
+							messageOut(message.getUsername() + " (whisper): " + message.getContents(), clientMap.get(recipient));
 						} break;	
 				}
 			}
@@ -115,9 +114,9 @@ public class ClientHandler implements Runnable {
 	public void messageOut(String outputMessage, ClientHandler client) throws JsonProcessingException {
 		Message out = new Message();
 		out.setContents(outputMessage);
-		String outJSON = client.mapper.writeValueAsString(out);
-		client.writer.write(outJSON);
-		client.writer.flush();
+		String outJSON = client.getMapper().writeValueAsString(out);
+		client.getWriter().write(outJSON);
+		client.getWriter().flush();
 
     }
 

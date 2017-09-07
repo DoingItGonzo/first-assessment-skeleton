@@ -14,8 +14,6 @@ public class Server implements Runnable {
 	private int port;
 	private ExecutorService executor;
 	
-	public static String[] commandArray = {"disconnect", "broadcast", "echo", "users", "connect"};
-	
 	public Server(int port, ExecutorService executor) {
 		super();
 		this.port = port;
