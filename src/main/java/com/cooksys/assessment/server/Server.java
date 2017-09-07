@@ -14,6 +14,8 @@ public class Server implements Runnable {
 	private int port;
 	private ExecutorService executor;
 	
+	public static String[] commandArray = {"disconnect", "broadcast", "echo", "users", "connect"};
+	
 	public Server(int port, ExecutorService executor) {
 		super();
 		this.port = port;
@@ -23,6 +25,7 @@ public class Server implements Runnable {
 	public void run() {
 		log.info("server started");
 		ServerSocket ss;
+		
 		try {
 			ss = new ServerSocket(this.port);
 			while (true) {

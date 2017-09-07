@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -20,8 +20,8 @@ public class ClientHandler implements Runnable {
 
 	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
 	
-//	static HashMap<String, ClientHandler> clientMap = new HashMap<String, ClientHandler>();
 	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
+	
 	
 	public ObjectMapper mapper;
 	public PrintWriter writer;
@@ -34,6 +34,8 @@ public class ClientHandler implements Runnable {
 		this.socket = socket;
 	}
 
+	
+	
 	public void run() {
 		try {
 
@@ -45,16 +47,39 @@ public class ClientHandler implements Runnable {
 				String raw = reader.readLine();
 				message = mapper.readValue(raw, Message.class);
 				
-				// add error handling for multiple copies of a userName  usernames 
-				switch (message.getCommand()) {
 				
+				if (message.getCommand().charAt(0) == '@') {
+					String recipient = message.getCommand().substring(1);
+					if (clientMap.containsKey(recipient)) 
+						messageOut(message.getContents(), clientMap.get(recipient));
+					else 
+						messageOut("That user is not connected", this);
+				}
+				
+//				if (!Arrays.asList(Server.commandArray).contains(message.getCommand()) && !clientMap.containsKey(message.getCommand())) {
+//					messageOut("Either the command you are trying to enter does not exist, or the user you are attempting to message is not connected. Check your spelling", this);
+//				}
+				
+				
+				//
+				// MESSAGE LOGGING MOTHA FUCKER
+				//
+				// add error handling for multiple copies of a userName  usernames 
+				// using too many for loops on the HashMap. Condense that into one method if possible
+				switch (message.getCommand()) {
+
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
-						clientMap.put(message.getUsername(), this);
+						for(ClientHandler client : clientMap.values()){
+                        	messageOut(message.getUsername() + " connected", client);
+						} clientMap.put(message.getUsername(), this);
 						break;
 						
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
+						for(ClientHandler client : clientMap.values()){
+                        	messageOut(message.getUsername() + " disconnected", client);
+						} clientMap.remove(message.getUsername());
 						this.socket.close();
 						break;
 						
@@ -67,16 +92,14 @@ public class ClientHandler implements Runnable {
                         log.info("user <{}> broadcasted message <{}>", message.getUsername(), message.getContents());
                         for(ClientHandler client : clientMap.values()){
                         	messageOut(message.getUsername() + "(all) " + message.getContents(), client);
-                        }
-                        break;
+                        } break;
 
 					case "users":
 						log.info("user <{}> used command<{}>", message.getUsername(), message.getCommand());
 						String userList = "";
 						for(String userName : clientMap.keySet()){
                         	userList += (userName + "\n");
-                        }
-						messageOut(userList, this);
+                        } messageOut(userList, this);
 						break;	
 				}
 			}

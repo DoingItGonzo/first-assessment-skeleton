@@ -7,14 +7,20 @@ export const cli = vorpal()
 
 let username
 let server
+let finalHost
+let finalPort
 
 cli
   .delimiter(cli.chalk['yellow']('ftd~$'))
 
 cli
-  .mode('connect <username>')
+  .mode('connect <username> [host] [port]', 'Type connect followed by your username')
   .delimiter(cli.chalk['green']('connected>'))
   .init(function (args, callback) {
+
+    // args.host !== null ? finalHost = args.host : finalHost = 'localhost'
+    // args.port !== null ? finalPort = args.port : finalPort = '8080'
+
     username = args.username
     server = connect({ host: 'localhost', port: 8080 }, () => {
       server.write(new Message({ username, command: 'connect' }).toJSON() + '\n')
@@ -30,7 +36,8 @@ cli
     })
   })
   .action(function (input, callback) {
-    const [ command, ...rest ] = words(input)
+
+    const [ command, ...rest ] = words(input, /\S+/g)
     const contents = rest.join(' ')
 
     if (command === 'disconnect') {
@@ -40,6 +47,8 @@ cli
     } else if (command === 'broadcast') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'users') {
+      server.write(new Message({ username, command, contents }).toJSON() + '\n')
+    } else if (command.startsWith("@")) {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else {
       this.log(`Command <${command}> was not recognized`)
