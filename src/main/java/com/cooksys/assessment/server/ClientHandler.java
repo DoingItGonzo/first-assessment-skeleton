@@ -41,6 +41,17 @@ public class ClientHandler implements Runnable {
 		super();
 		this.socket = socket;
 	}
+	
+	public void messageOut(String outputMessage, ClientHandler client, boolean needsUsername) throws JsonProcessingException {
+		if (needsUsername == true) {
+			message.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
+		} else {
+			message.setContents(timeStamp + " " + outputMessage);
+		} String outJSON = client.getMapper().writeValueAsString(message);
+		
+		client.getWriter().write(outJSON);
+		client.getWriter().flush();
+    }
 
 	public void run() {
 		try {
@@ -59,9 +70,9 @@ public class ClientHandler implements Runnable {
 					recipient = message.getCommand().substring(1);
 					message.setCommand(message.getCommand().substring(0, 1));
 				}
-				// MESSAGE LOGGING MOTHA FUCKER
+
 				// add error handling for multiple copies of a userName  usernames 
-				// using too many for loops on the HashMap. Condense that into one method if possible
+
 				switch (message.getCommand()) {
 
 				
@@ -88,12 +99,14 @@ public class ClientHandler implements Runnable {
 					case "broadcast":
                         log.info("user <{}> broadcasted message <{}>", message.getUsername(), message.getContents());
                         for(ClientHandler client : clientMap.values()){
-                        	messageOut("(all): " + message.getContents(), client, true);
+                        	if (client != this) {
+                        		messageOut("(all): " + message.getContents(), client, true);
+                        	}
                         } break;
 
 					case "users":
 						log.info("user <{}> used command<{}>", message.getUsername(), message.getCommand());
-						String userList = "";
+						String userList = "currently connected users: " + "\n";
 						for(String userName : clientMap.keySet()){
                         	userList += (userName + "\n");
                         } messageOut(userList, this, false);
@@ -112,19 +125,5 @@ public class ClientHandler implements Runnable {
 		} catch (IOException e) {
 			log.error("Something went wrong :/", e);
 		}
-		
 	}
-
-	public void messageOut(String outputMessage, ClientHandler client, boolean needsUsername) throws JsonProcessingException {
-		Message out = new Message(); 
-		if (needsUsername == true) {
-			out.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
-		} else {
-			out.setContents(timeStamp + " " + outputMessage);
-		} String outJSON = client.getMapper().writeValueAsString(out);
-		
-		client.getWriter().write(outJSON);
-		client.getWriter().flush();
-    }
-
 }
