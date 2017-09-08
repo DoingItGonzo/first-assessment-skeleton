@@ -20,35 +20,36 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ClientHandler implements Runnable {
 	
-	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
-
 	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
-	private Message message;
 	private Socket socket;
-	private String recipient;
-	String timeStamp;
-	
 	private ObjectMapper mapper;
+	private PrintWriter writer;
+	
 	public ObjectMapper getMapper() {
 		return mapper;
 	}
-	private PrintWriter writer;
 	public PrintWriter getWriter() {
 		return writer;
 	}
-	
 	public ClientHandler(Socket socket) {
 		super();
 		this.socket = socket;
 	}
 	
+	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
+	private Message message;
+	private String recipient;
+	String timeStamp;
+	
+	
 	public void messageOut(String outputMessage, ClientHandler client, boolean needsUsername) throws JsonProcessingException {
+		
 		if (needsUsername == true) {
 			message.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
 		} else {
 			message.setContents(timeStamp + " " + outputMessage);
-		} String outJSON = client.getMapper().writeValueAsString(message);
-		
+		} 
+		String outJSON = client.getMapper().writeValueAsString(message);
 		client.getWriter().write(outJSON);
 		client.getWriter().flush();
     }
@@ -71,10 +72,8 @@ public class ClientHandler implements Runnable {
 					message.setCommand(message.getCommand().substring(0, 1));
 				}
 
-				// add error handling for multiple copies of a userName  usernames 
-
+				
 				switch (message.getCommand()) {
-
 				
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
