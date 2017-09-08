@@ -8,6 +8,10 @@ export const cli = vorpal()
 let username
 let server
 
+let contents
+let commandColorMap = {'connect': 'red', 'disconnect': 'white',
+'echo': 'blue', 'broadcast': 'magenta', 'users': 'cyan', null: 'grey' } 
+
 cli
   .delimiter(cli.chalk['yellow']('ftd~$'))
 
@@ -29,10 +33,7 @@ cli
 
     server.on('data', (buffer) => {
       let message = Message.fromJSON(buffer)
-
-      let commandColorMap = {'connect': 'red', 'disconnect': 'white',
-      'echo': 'blue', 'broadcast': 'magenta', 'users': 'cyan', null: 'grey' } 
-
+ 
       if (message.command.startsWith("@")) {
         this.log(cli.chalk['yellow'](message.toString()))
       } else {
@@ -45,25 +46,22 @@ cli
     })
   })
   .action(function (input, callback) {
+    
 
     const [ command, ...rest ] = words(input, /\S+/g)
-    const contents = rest.join(' ')
-
-
-    // Add condition to allow in null values for previous command stuff
+    
+    if (!(command in commandColorMap)) {
+       contents = command + rest.join(' ')
+    } else {
+      contents = rest.join(' ')
+    }
+      
     if (command === 'disconnect') {
       server.end(new Message({ username, command }).toJSON() + '\n')
-    } else if (command === 'echo') {
-      server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    } else if (command === 'broadcast') {
-      server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    } else if (command === 'users') {
-      server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    } else if (command.startsWith("@")) {
-      server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else {
-      this.log(`Command <${command}> was not recognized`)
+      server.write(new Message({ username, command, contents }).toJSON() + '\n')
     }
-
     callback()
   })
+
+  

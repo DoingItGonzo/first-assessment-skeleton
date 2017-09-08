@@ -5,10 +5,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.lang.reflect.Array;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -20,8 +23,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ClientHandler implements Runnable {
 	
-	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
+	private HashSet<String> allCommands = new HashSet<String>(Arrays.asList("connect", "echo", "disconnect", "@", "broadcast", "users"));
+	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
+	private Message message;
+	private String recipient;
+	private String lastCommand;
+	private String timeStamp;
 	private Socket socket;
+	private Logger log = LoggerFactory.getLogger(ClientHandler.class);
+	
 	private ObjectMapper mapper;
 	private PrintWriter writer;
 	
@@ -36,20 +46,17 @@ public class ClientHandler implements Runnable {
 		this.socket = socket;
 	}
 	
-	static ConcurrentHashMap<String, ClientHandler> clientMap = new ConcurrentHashMap<String, ClientHandler>();
-	private Message message;
-	private String recipient;
-	String timeStamp;
-	
 	
 	public void messageOut(String outputMessage, ClientHandler client, boolean needsUsername) throws JsonProcessingException {
 		
+		Message outMessage = new Message();
+		outMessage.setCommand(message.getCommand());
 		if (needsUsername == true) {
-			message.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
+			outMessage.setContents(timeStamp + " <" + message.getUsername() + "> " + outputMessage);
 		} else {
-			message.setContents(timeStamp + " " + outputMessage);
+			outMessage.setContents(timeStamp + " " + outputMessage);
 		} 
-		String outJSON = client.getMapper().writeValueAsString(message);
+		String outJSON = client.getMapper().writeValueAsString(outMessage);
 		client.getWriter().write(outJSON);
 		client.getWriter().flush();
     }
@@ -66,10 +73,17 @@ public class ClientHandler implements Runnable {
 				String raw = reader.readLine();
 				message = mapper.readValue(raw, Message.class);
 				timeStamp = (new SimpleDateFormat("h:mm a").format(new Date()));
-
+				
+				
 				if (message.getCommand().startsWith("@")) {
 					recipient = message.getCommand().substring(1);
 					message.setCommand(message.getCommand().substring(0, 1));
+				}
+				
+				if(!allCommands.contains(message.getCommand())) {
+					message.setCommand(lastCommand);
+				} else {
+					lastCommand = message.getCommand();
 				}
 
 				
@@ -112,7 +126,7 @@ public class ClientHandler implements Runnable {
 						break;
 						
 					case "@":
-						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
+						log.info("user <{}> whispered message <{}> to user <{}>", message.getUsername(), message.getContents(), recipient);
 						if (!clientMap.containsKey(recipient)) {
 							messageOut("There are no users online with that username. Check your spelling, bruh", this, false);
 						} else {
